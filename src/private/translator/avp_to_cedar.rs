@@ -39,7 +39,7 @@ impl TryFrom<PolicyDefinition> for Policy {
         match detail {
             PolicyDefinitionDetail::Static(definition_detail) => {
                 let cedar_policy = cedar_policy::Policy::parse(
-                    Some(policy_id.clone()),
+                    Some(cedar_policy::PolicyId::from_str(policy_id.as_str()).unwrap()),
                     definition_detail.statement,
                 )
                 .map_err(|_| TranslatorException::ParsePolicy(policy_id.to_string()))?;
@@ -85,7 +85,7 @@ impl TryFrom<GetPolicyTemplateOutput> for Template {
         let policy_template_id = template_output.policy_template_id;
 
         let cedar_template = cedar_policy::Template::parse(
-            Some(policy_template_id.clone()),
+            Some(cedar_policy::PolicyId::from_str(policy_template_id.as_str()).unwrap()),
             template_output.statement,
         )
         .map_err(|_| TranslatorException::ParseTemplate(policy_template_id.clone()))?;
@@ -104,7 +104,7 @@ impl TryFrom<&str> for Schema {
 
     #[instrument(skip(schema_str), err(Debug))]
     fn try_from(schema_str: &str) -> Result<Self, Self::Error> {
-        let cedar_schema = cedar_policy::Schema::from_str(schema_str)
+        let cedar_schema = cedar_policy::Schema::from_json_str(schema_str)
             .map_err(|_e| TranslatorException::ParseSchema())?;
         if let Ok(action_entities) = cedar_schema.action_entities() {
             let schema_entities_ids = action_entities
@@ -148,7 +148,7 @@ mod test {
     };
     use aws_smithy_types::DateTime;
     use cedar_policy::Entities;
-    use cedar_policy_core::entities::EntitiesError;
+    use cedar_policy_core::entities::err::EntitiesError;
 
     const POLICY_ID: &str = "dummy-policy-id";
     const POLICY_STORE_ID: &str = "dummy-policy-store-id";

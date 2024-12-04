@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use aws_sdk_verifiedpermissions::Client;
-use cedar_policy::{Entities, Request, Schema, SchemaError};
-use cedar_policy_core::entities::EntitiesError;
+use cedar_policy::{CedarSchemaError, Entities, Request, Schema, SchemaError};
+use cedar_policy_core::entities::err::EntitiesError;
 use derive_builder::Builder;
 use thiserror::Error;
 use tokio::runtime::Handle;
@@ -113,7 +113,7 @@ impl EntityProvider {
 
         match fetch_schema_result {
             Ok(get_schema_output) => {
-                let schema = Schema::from_str(&get_schema_output.schema)?;
+                let schema = Schema::from_str(&get_schema_output.schema).unwrap();
 
                 Ok(Self {
                     policy_store_id,
@@ -161,8 +161,11 @@ impl UpdateProviderData for EntityProvider {
 
         let entities = match fetch_schema_result {
             Ok(get_schema_output) => {
-                let schema = Schema::from_str(&get_schema_output.schema).map_err(|e| {
-                    UpdateProviderDataError::General(Box::new(ProviderError::from(e)))
+                let schema = Schema::from_str(&get_schema_output.schema).map_err(|e| match e {
+                    CedarSchemaError::Schema(err) => {
+                        UpdateProviderDataError::General(Box::new(ProviderError::from(err)))
+                    }
+                    _ => UpdateProviderDataError::General(Box::new(e)),
                 })?;
                 schema.action_entities().map_err(|e| {
                     UpdateProviderDataError::General(Box::new(ProviderError::from(e)))
